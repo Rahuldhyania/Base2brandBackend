@@ -88,7 +88,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script: |
             cd /var/www/html/base2brandBackend
-            pm2 reload jdp-backend || pm2 start server.js --name jdp-backend
+            pm2 reload backendbase2brand || pm2 start server.js --name backendbase2brand
             pm2 save
 
       - name: Health check
@@ -99,5 +99,5 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY_LIVE }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            pm2 status jdp-backend
+            pm2 status backendbase2brand
             echo "🎉 Deployment completed"
