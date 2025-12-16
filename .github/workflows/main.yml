@@ -29,42 +29,34 @@ jobs:
 
       - name: Install dependencies
         run: |
-          echo "📦 Installing backend dependencies..."
           npm ci --ignore-scripts
-          echo "✅ Backend dependencies installed successfully"
         env:
           NPM_CONFIG_IGNORE_SCRIPTS: true
 
       - name: Build application (if needed)
         run: |
-          echo "🔨 Checking for build requirements..."
           if [ -f "package.json" ] && grep -q '"build"' package.json; then
-            echo "📦 Build script found, running build..."
             npm run build
-            echo "✅ Build completed successfully"
-          else
-            echo "⏭️ No build script found, skipping build step"
           fi
         env:
           NODE_ENV: production
 
       - name: Prepare deployment files
         run: |
-          echo "🧹 Cleaning up files for deployment..."
           rm -rf .git node_modules/.cache
-          echo "✅ Backend deployment files ready"
 
+      # 🔧 FIXED SSH STEP
       - name: Fix remote permissions
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY_LIVE }}
+          port: ${{ secrets.SERVER_PORT }}
           script: |
-            echo "🔐 Fixing remote permissions..."
-            sudo chown -R ${{ secrets.SERVER_USER }}:${{ secrets.SERVER_USER }} /var/www/html/base2brandBackend
-            sudo chmod -R 755 /var/www/html/base2brandBackend
-            echo "✅ Permissions fixed successfully"
+            echo "🔐 Fixing permissions..."
+            chown -R root:root /var/www/html/base2brandBackend
+            chmod -R 755 /var/www/html/base2brandBackend
 
       - name: Deploy via Rsync
         uses: easingthemes/ssh-deploy@main
@@ -72,10 +64,9 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY_LIVE }}
           REMOTE_HOST: ${{ secrets.SERVER_IP }}
           REMOTE_USER: ${{ secrets.SERVER_USER }}
+          REMOTE_PORT: ${{ secrets.SERVER_PORT }}
           TARGET: /var/www/html/base2brandBackend/
-          ARGS: "-rlgoDzvc --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r --no-perms --no-owner --no-group --exclude=node_modules --exclude=.git --exclude=.next --exclude=dist"
-          BEFORE_RSYNC: echo "🚀 Starting file deployment to server..."
-          AFTER_RSYNC: echo "✅ Files deployed successfully to server!"
+          ARGS: "-rlgoDzvc --exclude=node_modules --exclude=.git --exclude=.next --exclude=dist"
 
       - name: Install server dependencies
         uses: appleboy/ssh-action@v1.2.0
@@ -83,11 +74,10 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY_LIVE }}
+          port: ${{ secrets.SERVER_PORT }}
           script: |
-            echo "📦 Installing server dependencies..."
             cd /var/www/html/base2brandBackend
             npm ci --production --ignore-scripts
-            echo "✅ Server dependencies installed successfully"
 
       - name: Restart backend application
         uses: appleboy/ssh-action@v1.2.0
@@ -95,12 +85,11 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY_LIVE }}
+          port: ${{ secrets.SERVER_PORT }}
           script: |
-            echo "🔄 Restarting backend application..."
             cd /var/www/html/base2brandBackend
-            pm2 reload jdp-backend || pm2 start "npm run start" --name jdp-backend
+            pm2 reload jdp-backend || pm2 start server.js --name jdp-backend
             pm2 save
-            echo "✅ Backend application restarted successfully"
 
       - name: Health check
         uses: appleboy/ssh-action@v1.2.0
@@ -108,13 +97,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY_LIVE }}
+          port: ${{ secrets.SERVER_PORT }}
           script: |
-            echo "🏥 Performing health check..."
-            sleep 5
             pm2 status jdp-backend
-            echo "🎉 Backend deployment completed successfully!"
-            echo "📊 Deployment Summary:"
-            echo "  - Repository: ${{ github.repository }}"
-            echo "  - Branch: ${{ github.ref_name }}"
-            echo "  - Commit: ${{ github.sha }}"
-            echo "  - Deployed at: $(date)"
+            echo "🎉 Deployment completed"
